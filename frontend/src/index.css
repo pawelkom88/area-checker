@@ -263,6 +263,13 @@ h6 {
   box-shadow: 0 0 0 4px rgba(6, 122, 69, 0.1);
 }
 
+.form-feedback-slot {
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Primary Action Button */
 .btn-primary {
   background: var(--color-green);
@@ -405,7 +412,7 @@ h6 {
   color: var(--color-red);
   font-size: 14px;
   text-align: center;
-  margin-bottom: 16px;
+  margin: 0;
   font-weight: 500;
 }
 

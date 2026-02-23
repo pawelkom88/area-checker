@@ -7,7 +7,6 @@ import type { SnapshotData } from '../App';
 
 interface DashboardProps {
     isMobile: boolean;
-    windowHeight: number;
     data: SnapshotData | undefined;
     isLoading: boolean;
     error: Error | null;
@@ -19,7 +18,6 @@ interface DashboardProps {
 
 export function Dashboard({
     isMobile,
-    windowHeight,
     data,
     isLoading,
     error,
@@ -28,9 +26,33 @@ export function Dashboard({
     setIsDesktopSidebarOpen,
     handleSearch
 }: DashboardProps) {
+    const panelRef = React.useRef<HTMLDivElement | null>(null);
+    const [panelHeight, setPanelHeight] = React.useState(0);
     const mobileDrawerControls = useAnimationControls();
     const hasContent = data !== undefined || isLoading || error !== null;
-    const closedYValue = hasContent ? windowHeight - 240 : 0;
+    const closedYValue = hasContent ? Math.max(panelHeight - 240, 0) : 0;
+
+    React.useEffect(() => {
+        const panel = panelRef.current;
+        if (!panel) {
+            return;
+        }
+
+        const syncPanelHeight = () => {
+            setPanelHeight(panel.offsetHeight);
+        };
+
+        syncPanelHeight();
+
+        if (typeof ResizeObserver !== 'function') {
+            return;
+        }
+
+        const observer = new ResizeObserver(syncPanelHeight);
+        observer.observe(panel);
+
+        return () => observer.disconnect();
+    }, []);
 
     React.useEffect(() => {
         if (!isMobile) {
@@ -48,6 +70,7 @@ export function Dashboard({
 
     return (
         <motion.div
+            ref={panelRef}
             layoutId={!isMobile ? "desktop-panel" : undefined}
             className="app-overlay-panel"
             animate={mobileDrawerControls}
@@ -100,7 +123,9 @@ export function Dashboard({
                         placeholder="Enter postcode..."
                     />
                 </div>
-                {error && <p className="error-text fade-in-up" role="alert">{error.message}</p>}
+                <div className="form-feedback-slot" aria-live="polite">
+                    {error ? <p className="error-text fade-in-up" role="alert">{error.message}</p> : null}
+                </div>
                 <button type="submit" className="btn-primary" disabled={isLoading} aria-busy={isLoading}>
                     {isLoading ? 'Searching...' : 'Search Region'}
                 </button>

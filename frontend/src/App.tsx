@@ -23,7 +23,6 @@ export type SnapshotData = {
 const DEFAULT_CENTER = { lat: 54.5, lng: -2.0 };
 type DashboardBaseProps = {
   readonly isMobile: boolean;
-  readonly windowHeight: number;
   readonly drawerExpanded: boolean;
   readonly setDrawerExpanded: (expanded: boolean) => void;
   readonly setIsDesktopSidebarOpen: (open: boolean) => void;
@@ -57,7 +56,6 @@ function MapViewUpdater({ centroid }: { readonly centroid: { readonly lat: numbe
 function SnapshotDashboard({
   postcode,
   isMobile,
-  windowHeight,
   drawerExpanded,
   setDrawerExpanded,
   setIsDesktopSidebarOpen,
@@ -68,7 +66,6 @@ function SnapshotDashboard({
   return (
     <Dashboard
       isMobile={isMobile}
-      windowHeight={windowHeight}
       data={data}
       isLoading={false}
       error={null}
@@ -88,7 +85,6 @@ export default function App() {
   const [, startSearchTransition] = useTransition();
 
   const [isMobile] = useState(() => window.innerWidth <= 768);
-  const [windowHeight] = useState(() => window.innerHeight);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
   const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
@@ -120,7 +116,6 @@ export default function App() {
 
   const dashboardBaseProps: DashboardBaseProps = {
     isMobile,
-    windowHeight,
     drawerExpanded,
     setDrawerExpanded,
     setIsDesktopSidebarOpen,
