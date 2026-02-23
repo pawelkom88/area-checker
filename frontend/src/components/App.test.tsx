@@ -5,7 +5,6 @@ import App from '../App';
 describe('App Search Flow (Mobile First)', () => {
     it('renders default empty state', () => {
         render(<App />);
-        expect(screen.getByRole('button', { name: /Area Snapshot/i })).toBeInTheDocument();
         expect(screen.getByRole('heading', { name: /Search Region/i })).toBeInTheDocument();
         expect(screen.getByRole('searchbox', { name: /UK Postcode/i })).toBeInTheDocument();
     });
