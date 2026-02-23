@@ -1,6 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from '../App';
+
+// Setup fresh QueryClient per test
+const createTestQueryClient = () => new QueryClient({
+    defaultOptions: {
+        queries: {
+            retry: false, // turn off retries to prevent tests timing out
+        },
+    },
+});
 
 // Mock the backend API payload
 const mockPayload = {
@@ -38,13 +48,19 @@ describe('App Search Flow (Mobile First)', () => {
     });
 
     it('shows results for valid search', async () => {
+        const testQueryClient = createTestQueryClient();
+
         // Mock the successful fetch response
         (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
             ok: true,
             json: async () => mockPayload
         });
 
-        render(<App />);
+        render(
+            <QueryClientProvider client={testQueryClient}>
+                <App />
+            </QueryClientProvider>
+        );
 
         const input = screen.getByPlaceholderText('Enter postcode...');
         fireEvent.change(input, { target: { value: 'sw1a 1aa' } });
@@ -66,13 +82,19 @@ describe('App Search Flow (Mobile First)', () => {
     });
 
     it('shows error on invalid search', async () => {
+        const testQueryClient = createTestQueryClient();
+
         // Mock a 404 fetch response
         (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
             ok: false,
             json: async () => ({ error: 'No snapshot available for this postcode yet.' })
         });
 
-        render(<App />);
+        render(
+            <QueryClientProvider client={testQueryClient}>
+                <App />
+            </QueryClientProvider>
+        );
 
         const input = screen.getByPlaceholderText('Enter postcode...');
         fireEvent.change(input, { target: { value: 'XX99 9XX' } });
