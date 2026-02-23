@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import React, { Suspense, useState, useTransition } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import { Menu } from 'lucide-react';
-import { motion, useAnimationControls } from 'motion/react';
+import { motion } from 'motion/react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { Dashboard } from './pages/Dashboard';
-import { useSnapshotQuery } from './hooks/useSnapshotQuery';
+import { toError } from './helpers/error';
+import { snapshotQueryKeys, useSnapshotQuery } from './hooks/useSnapshotQuery';
+import { parsePostcodeInput } from './utils/postcode';
 
-// Type definitions
 export type SnapshotMetric<T> = Readonly<T>;
 export type SnapshotData = {
   readonly postcode: string;
@@ -18,89 +21,111 @@ export type SnapshotData = {
 };
 
 const DEFAULT_CENTER = { lat: 54.5, lng: -2.0 };
+type DashboardBaseProps = {
+  readonly isMobile: boolean;
+  readonly windowHeight: number;
+  readonly drawerExpanded: boolean;
+  readonly setDrawerExpanded: (expanded: boolean) => void;
+  readonly setIsDesktopSidebarOpen: (open: boolean) => void;
+  readonly handleSearch: (event: React.FormEvent<HTMLFormElement>) => void;
+};
+
+type SnapshotDashboardProps = DashboardBaseProps & {
+  readonly postcode: string;
+};
 
 function MapViewUpdater({ centroid }: { readonly centroid: { readonly lat: number; readonly lng: number } | null }) {
   const map = useMap();
+
   React.useEffect(() => {
-    if (centroid) {
-      const isDesktop = window.innerWidth >= 769;
-      if (isDesktop) {
-        // Offset center right so the marker stays on the right side of the screen consistently
-        map.flyTo([centroid.lat, centroid.lng - 0.02], 14, { animate: true, duration: 1.5 });
-      } else {
-        // Offset center up for bottom sheet
-        map.flyTo([centroid.lat - 0.01, centroid.lng], 14, { animate: true, duration: 1.5 });
-      }
+    if (!centroid) {
+      return;
     }
+
+    const isDesktop = window.innerWidth >= 769;
+    if (isDesktop) {
+      map.flyTo([centroid.lat, centroid.lng - 0.02], 14, { animate: true, duration: 1.5 });
+      return;
+    }
+
+    map.flyTo([centroid.lat - 0.01, centroid.lng], 14, { animate: true, duration: 1.5 });
   }, [centroid, map]);
+
   return null;
 }
 
+function SnapshotDashboard({
+  postcode,
+  isMobile,
+  windowHeight,
+  drawerExpanded,
+  setDrawerExpanded,
+  setIsDesktopSidebarOpen,
+  handleSearch,
+}: SnapshotDashboardProps) {
+  const { data } = useSnapshotQuery(postcode);
+
+  return (
+    <Dashboard
+      isMobile={isMobile}
+      windowHeight={windowHeight}
+      data={data}
+      isLoading={false}
+      error={null}
+      drawerExpanded={drawerExpanded}
+      setDrawerExpanded={setDrawerExpanded}
+      setIsDesktopSidebarOpen={setIsDesktopSidebarOpen}
+      handleSearch={handleSearch}
+    />
+  );
+}
+
 export default function App() {
-  const [searchInput, setSearchInput] = useState('');
+  const queryClient = useQueryClient();
   const [activePostcode, setActivePostcode] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<Error | null>(null);
   const [drawerExpanded, setDrawerExpanded] = useState(false);
+  const [, startSearchTransition] = useTransition();
 
-  // React Query handles loading/error/data states automatically
-  const { data, isLoading, error } = useSnapshotQuery(activePostcode);
-
-  // Responsive hook
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [windowHeight, setWindowHeight] = useState(window.innerHeight);
-  useEffect(() => {
-    const checkResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-      setWindowHeight(window.innerHeight);
-    };
-    checkResize();
-    window.addEventListener('resize', checkResize);
-    return () => window.removeEventListener('resize', checkResize);
-  }, []);
-
-  // Use motion controls to smoothly drive the mobile drawer y position
-  const mobileDrawerControls = useAnimationControls();
-
-  // Desktop Sidebar State
+  const [isMobile] = useState(() => window.innerWidth <= 768);
+  const [windowHeight] = useState(() => window.innerHeight);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
-  // Dynamic values to handle the open vs closed states of the swipeable bottom sheet
-  const hasContent = data !== undefined || isLoading || error !== null;
+  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const rawPostcode = formData.get('postcode-search');
+    const parsedPostcode = parsePostcodeInput(rawPostcode);
 
-  // calculate exactly how many pixels down the drawer must translate to hide its content
-  const closedYValue = hasContent ? windowHeight - 240 : 0;
-
-  // Sync drawer Expanded state with animations
-  useEffect(() => {
-    if (isMobile) {
-      if (drawerExpanded && hasContent) {
-        mobileDrawerControls.start({ y: 0, transition: { type: 'spring', damping: 25, stiffness: 220, mass: 0.8 } });
-      } else {
-        mobileDrawerControls.start({ y: closedYValue, transition: { type: 'spring', damping: 22, stiffness: 260, mass: 0.8 } });
-      }
-    } else {
-      mobileDrawerControls.set({ y: 0 });
+    if (!parsedPostcode.success) {
+      setValidationError(new Error(parsedPostcode.error.issues[0]?.message ?? 'Please enter a valid UK postcode.'));
+      return;
     }
-  }, [drawerExpanded, hasContent, isMobile, mobileDrawerControls, closedYValue]);
 
-  // Sync the `drawerExpanded` internal state if Desktop side panel is closed
-  useEffect(() => {
-    if (!isMobile) {
-      if (data || isLoading) {
-        setIsDesktopSidebarOpen(true);
-      }
-    }
-  }, [data, isLoading, isMobile]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchInput.trim()) return;
-
+    setValidationError(null);
     setDrawerExpanded(true);
-    // Setting the active postcode automatically triggers the React Query
-    setActivePostcode(searchInput);
+    setIsDesktopSidebarOpen(true);
+
+    startSearchTransition(() => {
+      setActivePostcode(parsedPostcode.data);
+    });
   };
 
-  const currentCentroid = data?.centroid ?? null;
+  const activeSnapshot =
+    activePostcode != null
+      ? queryClient.getQueryData<SnapshotData>(snapshotQueryKeys.byPostcode(activePostcode)) ?? null
+      : null;
+
+  const currentCentroid = activeSnapshot?.centroid ?? null;
+
+  const dashboardBaseProps: DashboardBaseProps = {
+    isMobile,
+    windowHeight,
+    drawerExpanded,
+    setDrawerExpanded,
+    setIsDesktopSidebarOpen,
+    handleSearch,
+  };
 
   return (
     <>
@@ -116,14 +141,11 @@ export default function App() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <MapViewUpdater centroid={currentCentroid} />
-          {currentCentroid && (
-            <Marker position={[currentCentroid.lat, currentCentroid.lng]} />
-          )}
+          {currentCentroid && <Marker position={[currentCentroid.lat, currentCentroid.lng]} />}
         </MapContainer>
       </div>
 
-      {/* DESKTOP CLOSED STATE (Floating Button) */}
-      {!isMobile && !isDesktopSidebarOpen && (
+      {!isDesktopSidebarOpen && (
         <motion.button
           layoutId="desktop-panel"
           className="desktop-menu-btn"
@@ -135,21 +157,44 @@ export default function App() {
         </motion.button>
       )}
 
-      {(!isMobile ? isDesktopSidebarOpen : true) && (
-        <Dashboard
-          isMobile={isMobile}
-          windowHeight={windowHeight}
-          data={data}
-          isLoading={isLoading}
-          error={error}
-          drawerExpanded={drawerExpanded}
-          setDrawerExpanded={setDrawerExpanded}
-          isDesktopSidebarOpen={isDesktopSidebarOpen}
-          setIsDesktopSidebarOpen={setIsDesktopSidebarOpen}
-          searchInput={searchInput}
-          setSearchInput={setSearchInput}
-          handleSearch={handleSearch}
-        />
+      {isDesktopSidebarOpen && (
+        <>
+          {!activePostcode && (
+            <Dashboard
+              {...dashboardBaseProps}
+              data={undefined}
+              isLoading={false}
+              error={validationError}
+            />
+          )}
+
+          {activePostcode && (
+            <ErrorBoundary
+              resetKeys={[activePostcode]}
+              fallbackRender={({ error }) => (
+                <Dashboard
+                  {...dashboardBaseProps}
+                  data={activeSnapshot ?? undefined}
+                  isLoading={false}
+                  error={toError(error)}
+                />
+              )}
+            >
+              <Suspense
+                fallback={
+                  <Dashboard
+                    {...dashboardBaseProps}
+                    data={activeSnapshot ?? undefined}
+                    isLoading
+                    error={null}
+                  />
+                }
+              >
+                <SnapshotDashboard {...dashboardBaseProps} postcode={activePostcode} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+        </>
       )}
     </>
   );

@@ -73,6 +73,8 @@ describe('App Search Flow (Mobile First)', () => {
             expect(screen.getByPlaceholderText('Enter postcode...')).toBeInTheDocument();
         });
 
+        expect(global.fetch).toHaveBeenCalledWith('/api/snapshot?postcode=SW1A%201AA');
+
         // Cards should appear
         await waitFor(() => {
             expect(screen.getByText(/Property Prices/i)).toBeInTheDocument();
@@ -105,5 +107,24 @@ describe('App Search Flow (Mobile First)', () => {
         await waitFor(() => {
             expect(screen.getByText('No snapshot available for this postcode yet.')).toBeInTheDocument();
         });
+    });
+
+    it('shows validation error and skips request for invalid postcode format', async () => {
+        const testQueryClient = createTestQueryClient();
+
+        render(
+            <QueryClientProvider client={testQueryClient}>
+                <App />
+            </QueryClientProvider>
+        );
+
+        const input = screen.getByPlaceholderText('Enter postcode...');
+        fireEvent.change(input, { target: { value: 'not-a-postcode' } });
+
+        const button = screen.getByRole('button', { name: /search region/i });
+        fireEvent.click(button);
+
+        expect(await screen.findByText('Please enter a valid UK postcode.')).toBeInTheDocument();
+        expect(global.fetch).not.toHaveBeenCalled();
     });
 });

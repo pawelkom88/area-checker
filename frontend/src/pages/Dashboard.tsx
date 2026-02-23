@@ -13,11 +13,8 @@ interface DashboardProps {
     error: Error | null;
     drawerExpanded: boolean;
     setDrawerExpanded: (expanded: boolean) => void;
-    isDesktopSidebarOpen: boolean;
     setIsDesktopSidebarOpen: (open: boolean) => void;
-    searchInput: string;
-    setSearchInput: (input: string) => void;
-    handleSearch: (e: React.FormEvent) => void;
+    handleSearch: (e: React.SubmitEvent<HTMLFormElement>) => void;
 }
 
 export function Dashboard({
@@ -28,10 +25,7 @@ export function Dashboard({
     error,
     drawerExpanded,
     setDrawerExpanded,
-    isDesktopSidebarOpen,
     setIsDesktopSidebarOpen,
-    searchInput,
-    setSearchInput,
     handleSearch
 }: DashboardProps) {
     const mobileDrawerControls = useAnimationControls();
@@ -39,15 +33,17 @@ export function Dashboard({
     const closedYValue = hasContent ? windowHeight - 240 : 0;
 
     React.useEffect(() => {
-        if (isMobile) {
-            if (drawerExpanded && hasContent) {
-                mobileDrawerControls.start({ y: 0, transition: { type: 'spring', damping: 25, stiffness: 220, mass: 0.8 } });
-            } else {
-                mobileDrawerControls.start({ y: closedYValue, transition: { type: 'spring', damping: 22, stiffness: 260, mass: 0.8 } });
-            }
-        } else {
+        if (!isMobile) {
             mobileDrawerControls.set({ y: 0 });
+            return;
         }
+
+        if (drawerExpanded && hasContent) {
+            mobileDrawerControls.start({ y: 0, transition: { type: 'spring', damping: 25, stiffness: 220, mass: 0.8 } });
+            return;
+        }
+
+        mobileDrawerControls.start({ y: closedYValue, transition: { type: 'spring', damping: 22, stiffness: 260, mass: 0.8 } });
     }, [drawerExpanded, hasContent, isMobile, mobileDrawerControls, closedYValue]);
 
     return (
@@ -102,8 +98,6 @@ export function Dashboard({
                         type="search"
                         autoComplete="postal-code"
                         placeholder="Enter postcode..."
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
                     />
                 </div>
                 {error && <p className="error-text fade-in-up" role="alert">{error.message}</p>}

@@ -1,10 +1,8 @@
 import type { SnapshotData } from '../App';
+import { normalizePostcodeInput } from '../utils/postcode';
 
-/**
- * Fetches the snapshot payload from the Netlify edge API.
- */
 export async function fetchSnapshot(postcode: string): Promise<SnapshotData> {
-    const normalized = postcode.toUpperCase().replace(/\s+/g, ' ').trim();
+    const normalized = normalizePostcodeInput(postcode);
 
     const response = await fetch(`/api/snapshot?postcode=${encodeURIComponent(normalized)}`);
 
