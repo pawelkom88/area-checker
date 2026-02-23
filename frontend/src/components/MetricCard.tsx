@@ -1,7 +1,7 @@
 import React from 'react';
 import type { LucideIcon } from 'lucide-react';
 
-type MetricCardProps = {
+export type MetricCardProps = {
     readonly title: string;
     readonly value: string;
     readonly description: string;
@@ -24,13 +24,13 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 }) => {
     if (loading) {
         return (
-            <div className="metric-card glass skeleton" style={{ minHeight: '220px' }}>
+            <div className="metric-card skeleton fade-in-up" style={{ minHeight: '160px' }}>
             </div>
         );
     }
 
     return (
-        <div className="metric-card glass fade-in-up">
+        <div className="metric-card fade-in-up">
             <div className="metric-card-header">
                 <h3 className="metric-card-title">{title}</h3>
                 <Icon className="metric-card-icon" size={20} />
@@ -41,7 +41,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
                 <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
                     Source: {sourceName}
                 </a>
-                <span className="metric-card-date">{lastUpdated}</span>
+                <span>{lastUpdated}</span>
             </div>
         </div>
     );

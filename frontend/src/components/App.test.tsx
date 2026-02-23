@@ -2,42 +2,37 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import App from '../App';
 
-describe('App Search Flow', () => {
+describe('App Search Flow (Mobile First)', () => {
     it('renders default empty state', () => {
         render(<App />);
-        expect(screen.getByRole('heading', { name: /UK Area Snapshot/i })).toBeInTheDocument();
-        expect(screen.getByPlaceholderText(/Enter a UK Postcode/i)).toBeInTheDocument();
-        expect(screen.queryByText(/Crime & Safety/i)).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Area Snapshot/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /Search Region/i })).toBeInTheDocument();
+        expect(screen.getByRole('searchbox', { name: /UK Postcode/i })).toBeInTheDocument();
     });
 
     it('shows error on invalid search', async () => {
         render(<App />);
-        const input = screen.getByPlaceholderText(/Enter a UK Postcode/i);
-        const button = screen.getByRole('button', { name: /Search/i });
+        const input = screen.getByRole('searchbox', { name: /UK Postcode/i });
+        const button = screen.getByRole('button', { name: /Search Region/i });
 
         fireEvent.change(input, { target: { value: 'INVALID' } });
         fireEvent.click(button);
 
         // Wait for the mock async function to reject or finish
-        // For now the mock in App.tsx just checks if it includes SW1
         await act(async () => {
             await new Promise(r => setTimeout(r, 1300));
         });
 
         expect(screen.getByText(/No snapshot available/i)).toBeInTheDocument();
-        expect(screen.queryByText('Searching...')).not.toBeInTheDocument();
     });
 
     it('shows results for valid search', async () => {
         render(<App />);
-        const input = screen.getByPlaceholderText(/Enter a UK Postcode/i);
-        const button = screen.getByRole('button', { name: /Search/i });
+        const input = screen.getByRole('searchbox', { name: /UK Postcode/i });
+        const button = screen.getByRole('button', { name: /Search Region/i });
 
         fireEvent.change(input, { target: { value: 'SW1A 1AA' } });
         fireEvent.click(button);
-
-        // Loading state right after click
-        expect(screen.getByText('Searching...')).toBeInTheDocument();
 
         await act(async () => {
             await new Promise(r => setTimeout(r, 1300));
