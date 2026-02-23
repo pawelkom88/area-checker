@@ -10,3 +10,7 @@
 [[edge_functions]]
   path = "/api/snapshot"
   function = "snapshot"
+
+[[edge_functions]]
+  path = "/api/layer"
+  function = "layer"

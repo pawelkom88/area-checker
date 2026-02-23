@@ -1,5 +1,31 @@
 # UK Area Snapshot — To-Do List
 
+## Priority Roadmap (P0 / P1 / P2)
+
+### P0 — Must Ship Next (Correctness + Shareability + Stability)
+- [ ] Define and document a stable map overlay API contract: `postcode`, `metric`, `bounds`, `zoom`, optional `radius`, and `datasetVersion`.
+- [ ] Implement first two real overlays (replace placeholders): `flood` (polygon) and `crime` (points/density).
+- [ ] Wire overlay state to URL params so deep links are shareable/reloadable (`layers`, `showOnMap`, optional `radius`).
+- [ ] Add viewport-aware + debounced map fetching to prevent request storms on pan/zoom.
+- [ ] Add graceful unavailable states per layer (no crashes, clear copy in drawer + legend).
+- [ ] Add targeted tests: deep-link overlay hydration, toggle-on/toggle-off behavior, and invalid param sanitization.
+
+### P1 — Performance + Caching Hardening
+- [ ] Add `ETag` support for snapshot/layer endpoints and conditional requests (`If-None-Match` -> `304`).
+- [ ] Version cache keys by dataset version (`datasetVersion`) to make invalidation deterministic.
+- [ ] Extend edge caching policy for layer endpoints (`s-maxage` + `stale-while-revalidate`) with per-layer TTLs.
+- [ ] Add client-side persistence for recent snapshot/layer payloads (`IndexedDB`) with TTL + size cap.
+- [ ] Normalize TanStack Query keys for overlays (`metric`, normalized postcode, viewport bucket, zoom bucket).
+- [ ] Prefetch likely next query on metric-details navigation to reduce perceived latency.
+
+### P2 — Scale + Advanced Map Rendering
+- [ ] Add render budgets by zoom (max features per layer + fallback aggregation) to keep FPS stable on mobile.
+- [ ] Add clustering/simplification pipeline for large point/polygon layers.
+- [ ] Add optional heatmap/choropleth mode for density-style layers where aggregation is clearer than raw points.
+- [ ] Introduce viewport partitioning strategy (tile/chunk-based payloads) for large geospatial datasets.
+- [ ] Add performance instrumentation dashboard (request counts, cache hit ratio, median toggle latency, JS heap guardrails).
+- [ ] Add regression checks for drawer/map interactions under heavy overlay load (mobile + desktop).
+
 ## Phase 0: Foundations & "Hello Snapshot"
 - [x] Initialize Vite React + TypeScript repository.
 - [x] Set up global vanilla CSS (`theme.css` / `index.css`) with Apple-like UI variables (colors, fonts, radius).

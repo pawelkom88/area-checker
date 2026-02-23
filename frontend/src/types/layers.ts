@@ -6,11 +6,21 @@ export interface LegendBucket {
   readonly color: string;
 }
 
+export interface CrimePointFeature {
+  readonly id: string;
+  readonly type: 'point';
+  readonly lat: number;
+  readonly lng: number;
+  readonly category: string;
+}
+
 export interface MetricLayerResponse {
   readonly metric: MetricId;
   readonly postcode: string;
-  readonly status: 'unavailable';
-  readonly reason: string;
+  readonly status: 'available' | 'unavailable';
+  readonly reason?: string;
+  readonly sourceName?: string;
+  readonly lastUpdated?: string;
   readonly legend: readonly LegendBucket[];
-  readonly features: readonly unknown[];
+  readonly features: readonly CrimePointFeature[];
 }

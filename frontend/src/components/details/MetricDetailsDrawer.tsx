@@ -19,6 +19,7 @@ type MetricDetailsDrawerProps = {
   readonly setIsDesktopSidebarOpen: (open: boolean) => void;
   readonly showOnMap: boolean;
   readonly setShowOnMap: (visible: boolean) => void;
+  readonly mapStatusMessage: string;
   readonly onBack: () => void;
 };
 
@@ -34,6 +35,7 @@ export function MetricDetailsDrawer({
   setIsDesktopSidebarOpen,
   showOnMap,
   setShowOnMap,
+  mapStatusMessage,
   onBack,
 }: MetricDetailsDrawerProps) {
   const panelRef = React.useRef<HTMLDivElement | null>(null);
@@ -191,7 +193,7 @@ export function MetricDetailsDrawer({
           ) : cardContent}
           <section className="details-placeholder" aria-live="polite">
             <h3>Map Layer Availability</h3>
-            <p>{metricMeta[metric].mapPlaceholder}</p>
+            <p>{mapStatusMessage}</p>
           </section>
         </div>
       </div>

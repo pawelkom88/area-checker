@@ -5,6 +5,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { ErrorBoundary } from 'react-error-boundary';
 import { ErrorFallback } from './ErrorFallback';
 import { createAppRouter } from '../router';
+import type { MetricLayerResponse } from '../types/layers';
 
 const createTestQueryClient = () =>
   new QueryClient({
@@ -39,6 +40,74 @@ const mockPayload = {
   },
 };
 
+const mockCrimeLayerPayload: MetricLayerResponse = {
+  metric: 'crime',
+  postcode: 'SW1A 1AA',
+  status: 'available',
+  sourceName: 'UK Police Data',
+  lastUpdated: '2023-11',
+  legend: [
+    { id: 'anti-social-behaviour', label: 'anti social behaviour (2)', color: '#0A8A4B' },
+  ],
+  features: [
+    { id: 'c1', type: 'point', lat: 51.5011, lng: -0.1408, category: 'anti-social-behaviour' },
+    { id: 'c2', type: 'point', lat: 51.5008, lng: -0.1413, category: 'anti-social-behaviour' },
+  ],
+};
+
+const mockFloodUnavailablePayload: MetricLayerResponse = {
+  metric: 'flood',
+  postcode: 'SW1A 1AA',
+  status: 'unavailable',
+  reason: 'Detailed flood-risk map layer is not available yet for this postcode.',
+  legend: [],
+  features: [],
+};
+
+type MockResponseOptions = {
+  readonly status?: number;
+  readonly headers?: Record<string, string>;
+};
+
+function createMockResponse(body: unknown, options?: MockResponseOptions) {
+  const status = options?.status ?? 200;
+  const headers = new Headers(options?.headers ?? {});
+
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers,
+    json: async () => body,
+  };
+}
+
+function mockApiFetch(options?: {
+  readonly snapshotStatus?: number;
+  readonly layerStatus?: number;
+  readonly layerBody?: unknown;
+  readonly layerHeaders?: Record<string, string>;
+}) {
+  const snapshotStatus = options?.snapshotStatus ?? 200;
+  const layerStatus = options?.layerStatus ?? 200;
+  const layerBody = options?.layerBody ?? mockCrimeLayerPayload;
+
+  (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
+    const requestUrl = String(input);
+    if (requestUrl.startsWith('/api/snapshot')) {
+      return createMockResponse(mockPayload, { status: snapshotStatus });
+    }
+
+    if (requestUrl.startsWith('/api/layer')) {
+      return createMockResponse(layerBody, {
+        status: layerStatus,
+        headers: options?.layerHeaders,
+      });
+    }
+
+    return createMockResponse({ error: 'Unexpected request in test.' }, { status: 500 });
+  });
+}
+
 async function renderAppAt(path: string) {
   window.history.pushState({}, '', path);
 
@@ -66,10 +135,7 @@ describe('App Router Search + Details Flow', () => {
   });
 
   it('hydrates from postcode URL param and loads cards', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => mockPayload,
-    });
+    mockApiFetch();
 
     await renderAppAt('/?postcode=SW1A%201AA');
 
@@ -90,10 +156,7 @@ describe('App Router Search + Details Flow', () => {
   });
 
   it('submitting search updates URL query param and fetches', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => mockPayload,
-    });
+    mockApiFetch();
 
     await renderAppAt('/');
 
@@ -111,10 +174,7 @@ describe('App Router Search + Details Flow', () => {
   });
 
   it('navigates to metric details route when a summary card is clicked', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => mockPayload,
-    });
+    mockApiFetch();
 
     await renderAppAt('/?postcode=SW1A%201AA');
 
@@ -134,9 +194,8 @@ describe('App Router Search + Details Flow', () => {
   });
 
   it('supports direct details deep-link and map toggle placeholder', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => mockPayload,
+    mockApiFetch({
+      layerBody: mockFloodUnavailablePayload,
     });
 
     await renderAppAt('/details?postcode=SW1A%201AA&metric=flood');
@@ -154,6 +213,33 @@ describe('App Router Search + Details Flow', () => {
       const legend = screen.getByRole('note');
       expect(within(legend).getByRole('heading', { name: /Flood Risk Map/i })).toBeInTheDocument();
       expect(within(legend).getByText(/Detailed flood-risk map layer is not available yet/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows a clear rate-limit message when live layer API returns 429', async () => {
+    mockApiFetch({
+      layerStatus: 429,
+      layerBody: {
+        error: 'Live crime data provider is temporarily rate-limiting requests. Please try again shortly.',
+        retryAfterSeconds: 75,
+      },
+      layerHeaders: {
+        'Retry-After': '75',
+      },
+    });
+
+    await renderAppAt('/details?postcode=SW1A%201AA&metric=crime');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Show on map/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Show on map/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByText(/temporarily rate-limiting requests. Please try again in about 75 seconds/i).length,
+      ).toBeGreaterThan(0);
     });
   });
 });

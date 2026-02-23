@@ -1,7 +1,8 @@
 import React from 'react';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
+import { CircleMarker, MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import type { MetricId } from '../../constants/metrics';
 import { metricMeta } from '../../constants/metrics';
+import type { CrimePointFeature, MetricLayerResponse } from '../../types/layers';
 
 const DEFAULT_CENTER = { lat: 54.5, lng: -2.0 };
 
@@ -14,6 +15,8 @@ type MapShellProps = {
   readonly centroid: LatLng | null;
   readonly activeMetric?: MetricId;
   readonly showMapOverlay?: boolean;
+  readonly mapLayerData?: MetricLayerResponse;
+  readonly mapLegendText?: string;
 };
 
 function MapViewUpdater({ centroid }: { readonly centroid: LatLng | null }) {
@@ -36,7 +39,24 @@ function MapViewUpdater({ centroid }: { readonly centroid: LatLng | null }) {
   return null;
 }
 
-export function MapShell({ centroid, activeMetric, showMapOverlay = false }: MapShellProps) {
+function getCrimeCategoryColor(options: {
+  readonly category: string;
+  readonly mapLayerData?: MetricLayerResponse;
+}): string {
+  const legendEntry = options.mapLayerData?.legend.find((bucket) => bucket.id === options.category);
+  return legendEntry?.color ?? '#0A8A4B';
+}
+
+export function MapShell({
+  centroid,
+  activeMetric,
+  showMapOverlay = false,
+  mapLayerData,
+  mapLegendText,
+}: MapShellProps) {
+  const hasCrimeLayer = activeMetric === 'crime' && mapLayerData?.status === 'available';
+  const crimeFeatures: readonly CrimePointFeature[] = hasCrimeLayer ? mapLayerData.features : [];
+
   return (
     <>
       <div className="map-container">
@@ -52,13 +72,38 @@ export function MapShell({ centroid, activeMetric, showMapOverlay = false }: Map
           />
           <MapViewUpdater centroid={centroid} />
           {centroid && <Marker position={[centroid.lat, centroid.lng]} />}
+          {showMapOverlay && hasCrimeLayer && crimeFeatures.map((feature) => (
+            <CircleMarker
+              key={feature.id}
+              center={[feature.lat, feature.lng]}
+              radius={5}
+              pathOptions={{
+                color: getCrimeCategoryColor({ category: feature.category, mapLayerData }),
+                fillColor: getCrimeCategoryColor({ category: feature.category, mapLayerData }),
+                fillOpacity: 0.5,
+                weight: 1,
+              }}
+            />
+          ))}
         </MapContainer>
       </div>
 
       {showMapOverlay && activeMetric && (
         <aside className="map-legend" role="note" aria-live="polite">
           <h3 className="map-legend-title">{metricMeta[activeMetric].title} Map</h3>
-          <p className="map-legend-text">{metricMeta[activeMetric].mapPlaceholder}</p>
+          <p className="map-legend-text">
+            {mapLegendText ?? metricMeta[activeMetric].mapPlaceholder}
+          </p>
+          {mapLayerData?.status === 'available' && mapLayerData.legend.length > 0 && (
+            <ul className="map-legend-list">
+              {mapLayerData.legend.map((bucket) => (
+                <li key={bucket.id} className="map-legend-item">
+                  <span className="map-legend-swatch" style={{ backgroundColor: bucket.color }} aria-hidden="true" />
+                  <span>{bucket.label}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </aside>
       )}
     </>
