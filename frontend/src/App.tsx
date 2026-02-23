@@ -2,7 +2,6 @@ import React, { Suspense, useState, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import { Menu } from 'lucide-react';
-import { motion } from 'motion/react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Dashboard } from './pages/Dashboard';
 import { toError } from './helpers/error';
@@ -41,13 +40,7 @@ function MapViewUpdater({ centroid }: { readonly centroid: { readonly lat: numbe
       return;
     }
 
-    const isDesktop = window.innerWidth >= 769;
-    if (isDesktop) {
-      map.flyTo([centroid.lat, centroid.lng - 0.02], 14, { animate: true, duration: 1.5 });
-      return;
-    }
-
-    map.flyTo([centroid.lat - 0.01, centroid.lng], 14, { animate: true, duration: 1.5 });
+    map.panTo([centroid.lat, centroid.lng], { animate: true, duration: 1.2 });
   }, [centroid, map]);
 
   return null;
@@ -141,15 +134,13 @@ export default function App() {
       </div>
 
       {!isDesktopSidebarOpen && (
-        <motion.button
-          layoutId="desktop-panel"
+        <button
           className="desktop-menu-btn"
           onClick={() => setIsDesktopSidebarOpen(true)}
-          transition={{ type: 'spring', bounce: 0.15, duration: 0.5 }}
           aria-label="Open Search Panel"
         >
           <Menu size={24} />
-        </motion.button>
+        </button>
       )}
 
       {isDesktopSidebarOpen && (

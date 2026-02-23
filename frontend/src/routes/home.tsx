@@ -2,7 +2,6 @@ import { Suspense, useEffect, useState, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { Menu } from 'lucide-react';
-import { motion } from 'motion/react';
 import { ErrorBoundary } from 'react-error-boundary';
 import type { MetricId } from '../constants/metrics';
 import { toError } from '../helpers/error';
@@ -135,18 +134,16 @@ function HomeRouteComponent() {
 
   return (
     <>
-      <MapShell centroid={activeSnapshot?.centroid ?? null} />
+      <MapShell centroid={activeSnapshot?.centroid ?? null} isMobile={isMobile} />
 
       {!isDesktopSidebarOpen && (
-        <motion.button
-          layoutId="desktop-panel"
+        <button
           className="desktop-menu-btn"
           onClick={() => setIsDesktopSidebarOpen(true)}
-          transition={{ type: 'spring', bounce: 0.15, duration: 0.5 }}
           aria-label="Open Search Panel"
         >
           <Menu size={24} />
-        </motion.button>
+        </button>
       )}
 
       {isDesktopSidebarOpen && (

@@ -5,6 +5,7 @@
 ### P0 — Must Ship Next (Correctness + Shareability + Stability)
 - [ ] Define and document a stable map overlay API contract: `postcode`, `metric`, `bounds`, `zoom`, optional `radius`, and `datasetVersion`.
 - [ ] Implement first two real overlays (replace placeholders): `flood` (polygon) and `crime` (points/density).
+- [ ] Run initial `crime` cache population (`node scripts/sync-crime-layer-cache.mjs`) after migration in each target environment.
 - [ ] Wire overlay state to URL params so deep links are shareable/reloadable (`layers`, `showOnMap`, optional `radius`).
 - [ ] Add viewport-aware + debounced map fetching to prevent request storms on pan/zoom.
 - [ ] Add graceful unavailable states per layer (no crashes, clear copy in drawer + legend).
@@ -69,6 +70,7 @@
 ## Phase 3: The Zero-Cost Automated Pipeline
 - [ ] Write Python/Node ingest scripts for Schools, GPs, and Broadband datasets.
 - [ ] Write Python/Node ingest scripts for Flood Zones and Air Quality.
+- [ ] Add daily scheduled sync for crime cache (`scripts/sync-crime-layer-cache.mjs`) once the app is production-ready.
 - [ ] Setup GitHub Actions `cron` schedules for each dataset (monthly, quarterly).
 - [ ] Implement partial `UPSERT` logic so scripts only update relevant fields in the `snapshot_json` payload.
 - [ ] Add error reporting/webhooks for Github Actions pipeline failures (e.g., Slack/Discord).

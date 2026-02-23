@@ -1,10 +1,9 @@
 import React from 'react';
 import { ArrowLeft, X } from 'lucide-react';
-import { motion, useAnimationControls } from 'motion/react';
-import type { PanInfo } from 'motion/react';
 import type { MetricId } from '../../constants/metrics';
 import { metricMeta } from '../../constants/metrics';
 import { MetricCard } from '../MetricCard';
+import { CrimeAnalyticsCard } from '../CrimeAnalyticsCard';
 import type { SnapshotData } from '../../types/snapshot';
 
 type MetricDetailsDrawerProps = {
@@ -19,7 +18,6 @@ type MetricDetailsDrawerProps = {
   readonly setIsDesktopSidebarOpen: (open: boolean) => void;
   readonly showOnMap: boolean;
   readonly setShowOnMap: (visible: boolean) => void;
-  readonly mapStatusMessage: string;
   readonly onBack: () => void;
 };
 
@@ -35,14 +33,21 @@ export function MetricDetailsDrawer({
   setIsDesktopSidebarOpen,
   showOnMap,
   setShowOnMap,
-  mapStatusMessage,
   onBack,
 }: MetricDetailsDrawerProps) {
   const panelRef = React.useRef<HTMLDivElement | null>(null);
+  const dragPointerIdRef = React.useRef<number | null>(null);
+  const dragStartYRef = React.useRef(0);
+  const dragStartTranslateRef = React.useRef(0);
+  const [dragTranslateY, setDragTranslateY] = React.useState<number | null>(null);
   const [panelHeight, setPanelHeight] = React.useState(0);
-  const controls = useAnimationControls();
   const hasContent = data !== undefined || isLoading || error !== null;
-  const closedYValue = hasContent ? Math.max(panelHeight - 240, 0) : 0;
+  const mobilePeekHeight = 210;
+  const closedYValue = hasContent ? Math.max(panelHeight - mobilePeekHeight, 0) : 0;
+  const baseTranslateY = drawerExpanded ? 0 : closedYValue;
+  const effectiveTranslateY = dragTranslateY ?? baseTranslateY;
+
+  const clampTranslateY = (value: number) => Math.min(Math.max(value, 0), closedYValue);
 
   React.useEffect(() => {
     const panel = panelRef.current;
@@ -67,29 +72,52 @@ export function MetricDetailsDrawer({
   }, []);
 
   React.useEffect(() => {
-    if (!isMobile) {
-      controls.set({ y: 0 });
+    setDragTranslateY(null);
+  }, [closedYValue]);
+
+  const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isMobile || !hasContent) {
       return;
     }
+    dragPointerIdRef.current = event.pointerId;
+    dragStartYRef.current = event.clientY;
+    dragStartTranslateRef.current = baseTranslateY;
+    setDragTranslateY(baseTranslateY);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
 
-    if (drawerExpanded && hasContent) {
-      controls.start({ y: 0, transition: { type: 'spring', damping: 25, stiffness: 220, mass: 0.8 } });
+  const onDragMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isMobile || dragPointerIdRef.current !== event.pointerId) {
       return;
     }
+    const deltaY = event.clientY - dragStartYRef.current;
+    setDragTranslateY(clampTranslateY(dragStartTranslateRef.current + deltaY));
+  };
 
-    controls.start({ y: closedYValue, transition: { type: 'spring', damping: 22, stiffness: 260, mass: 0.8 } });
-  }, [closedYValue, controls, drawerExpanded, hasContent, isMobile]);
+  const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (dragPointerIdRef.current !== event.pointerId) {
+      return;
+    }
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    dragPointerIdRef.current = null;
+
+    const finalY = clampTranslateY(dragTranslateY ?? baseTranslateY);
+    const shouldExpand = finalY < closedYValue * 0.7;
+    setDrawerExpanded(shouldExpand);
+    setDragTranslateY(null);
+  };
 
   const cardContent = data ? (
     metric === 'crime' ? (
-      <MetricCard
-        title="Crime & Safety"
-        value={`${data.metrics.crime.total_incidents} incidents`}
-        description={`Primary type: ${data.metrics.crime.primary_type}. Trend: ${data.metrics.crime.trend}.`}
-        icon={metricMeta.crime.icon}
+      <CrimeAnalyticsCard
+        incidents={data.metrics.crime.total_incidents}
+        trend={data.metrics.crime.trend}
+        primaryType={data.metrics.crime.primary_type}
+        leadingCategory={data.metrics.crime.top_categories?.[0]?.category}
+        leadingCount={data.metrics.crime.top_categories?.[0]?.count}
         sourceName="UK Police Data"
         sourceUrl="https://data.police.uk"
-        lastUpdated={data.metrics.crime.last_updated}
+        snapshotLabel={`Snapshot ${data.metrics.crime.last_updated}`}
       />
     ) : metric === 'price' ? (
       <MetricCard
@@ -99,7 +127,7 @@ export function MetricDetailsDrawer({
         icon={metricMeta.price.icon}
         sourceName="HM Land Registry"
         sourceUrl="https://landregistry.gov.uk"
-        lastUpdated={data.metrics.price.last_updated}
+        lastUpdated={`Snapshot ${data.metrics.price.last_updated}`}
       />
     ) : (
       <MetricCard
@@ -109,51 +137,24 @@ export function MetricDetailsDrawer({
         icon={metricMeta.flood.icon}
         sourceName="Environment Agency"
         sourceUrl="https://gov.uk/check-long-term-flood-risk"
-        lastUpdated={data.metrics.flood.last_updated}
+        lastUpdated={`Snapshot ${data.metrics.flood.last_updated}`}
       />
     )
   ) : null;
 
   return (
-    <motion.div
+    <div
       ref={panelRef}
-      layoutId={!isMobile ? 'desktop-panel' : undefined}
       className="app-overlay-panel"
-      animate={controls}
-      initial={false}
-      drag={isMobile ? 'y' : false}
-      dragConstraints={{ top: 0 }}
-      dragElastic={0.15}
-      onDragEnd={(_event, info: PanInfo) => {
-        if (!isMobile) {
-          return;
-        }
-
-        const projectedY = info.offset.y + info.velocity.y * 0.1;
-        if (projectedY > 50 && hasContent) {
-          setDrawerExpanded(false);
-          return;
-        }
-
-        if (projectedY < -50 && hasContent) {
-          setDrawerExpanded(true);
-          return;
-        }
-
-        if (!hasContent) {
-          return;
-        }
-
-        controls.start({
-          y: drawerExpanded ? 0 : closedYValue,
-          transition: drawerExpanded
-            ? { type: 'spring', damping: 25, stiffness: 220, mass: 0.8 }
-            : { type: 'spring', damping: 22, stiffness: 260, mass: 0.8 },
-        });
-      }}
-      transition={{ type: 'spring', damping: 22, stiffness: 260, mass: 0.8 }}
+      style={isMobile ? { transform: `translateY(${effectiveTranslateY}px)` } : undefined}
     >
-      <div className="bottom-sheet-handle" />
+      <div
+        className="bottom-sheet-handle"
+        onPointerDown={startDrag}
+        onPointerMove={onDragMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      />
 
       <div className="bottom-sheet-header">
         <button className="panel-back-btn" onClick={onBack} aria-label="Back to summary">
@@ -175,28 +176,35 @@ export function MetricDetailsDrawer({
       </div>
 
       <div className="details-controls">
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={() => setShowOnMap(!showOnMap)}
-        >
-          {showOnMap ? 'Hide on map' : 'Show on map'}
-        </button>
+        <div className="map-cta-toggle" role="group" aria-label="Map visibility">
+          <button
+            type="button"
+            className={`map-cta-segment ${showOnMap ? 'map-cta-segment--active' : ''}`}
+            onClick={() => setShowOnMap(true)}
+            aria-pressed={showOnMap}
+          >
+            Map On
+          </button>
+          <button
+            type="button"
+            className={`map-cta-segment ${!showOnMap ? 'map-cta-segment--active' : ''}`}
+            onClick={() => setShowOnMap(false)}
+            aria-pressed={!showOnMap}
+          >
+            Map Off
+          </button>
+        </div>
       </div>
 
-      {error ? <p className="error-text fade-in-up" role="alert">{error.message}</p> : null}
+      {error ? <p className="error-text" role="alert">{error.message}</p> : null}
 
       <div className="scroll-area" onPointerDown={(event) => { if (isMobile) event.stopPropagation(); }}>
         <div className="metric-list">
           {isLoading ? (
             <MetricCard loading title="" value="" description="" icon={metricMeta[metric].icon} sourceName="" sourceUrl="" lastUpdated="" />
           ) : cardContent}
-          <section className="details-placeholder" aria-live="polite">
-            <h3>Map Layer Availability</h3>
-            <p>{mapStatusMessage}</p>
-          </section>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

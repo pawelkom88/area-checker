@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
+import { hydrateSnapshotAndCrimeLayer, normalizePostcodeInput } from "./_lib/postcode-hydration.ts";
 
 export default async function handler(req: Request) {
     // Only allow GET requests
@@ -16,14 +17,14 @@ export default async function handler(req: Request) {
         });
     }
 
-    // Normalize postcode: uppercase, strip multiple spaces, trim
-    const normalizedPostcode = postcodeParam.toUpperCase().replace(/\s+/g, " ").trim();
+    const normalizedPostcode = normalizePostcodeInput(postcodeParam);
 
     // Initialize Supabase. 
     // Netlify Edge Functions automatically have access to process.env or Deno.env if configured in Netlify UI.
     // We'll use Netlify.env.get() which is standard for Edge Functions.
     const supabaseUrl = Netlify.env.get("SUPABASE_URL");
     const supabaseKey = Netlify.env.get("SUPABASE_ANON_KEY");
+    const serviceRoleKey = Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !supabaseKey) {
         console.error("Missing Supabase environment variables");
@@ -44,13 +45,45 @@ export default async function handler(req: Request) {
 
         if (error) {
             if (error.code === 'PGRST116') {
-                // PostgREST 116 = no rows returned from .single()
-                return new Response(JSON.stringify({ error: "No snapshot available for this postcode yet." }), {
-                    status: 404,
+                if (!serviceRoleKey) {
+                    return new Response(JSON.stringify({ error: "No snapshot available for this postcode yet." }), {
+                        status: 404,
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Cache-Control": "public, max-age=3600",
+                        },
+                    });
+                }
+
+                const hydrationResult = await hydrateSnapshotAndCrimeLayer({
+                    supabaseUrl,
+                    serviceRoleKey,
+                    postcode: normalizedPostcode,
+                });
+
+                if (!hydrationResult.ok) {
+                    return new Response(
+                        JSON.stringify({
+                            error: hydrationResult.error,
+                            retryAfterSeconds: hydrationResult.retryAfterSeconds,
+                        }),
+                        {
+                            status: hydrationResult.status,
+                            headers: {
+                                "Content-Type": "application/json",
+                                ...(hydrationResult.retryAfterSeconds
+                                    ? { "Retry-After": String(hydrationResult.retryAfterSeconds) }
+                                    : {}),
+                            },
+                        },
+                    );
+                }
+
+                return new Response(JSON.stringify(hydrationResult.snapshotPayload), {
+                    status: 200,
                     headers: {
                         "Content-Type": "application/json",
-                        // Cache 404s for 1 hour to prevent hammering the DB for non-existent postcodes
-                        "Cache-Control": "public, max-age=3600"
+                        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
                     },
                 });
             }
@@ -67,8 +100,9 @@ export default async function handler(req: Request) {
             },
         });
 
-    } catch (err: any) {
-        console.error("Supabase query failed:", err.message);
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error("Supabase query failed:", errorMessage);
         return new Response(JSON.stringify({ error: "Failed to fetch snapshot data" }), {
             status: 500,
             headers: { "Content-Type": "application/json" },

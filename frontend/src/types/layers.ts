@@ -4,6 +4,7 @@ export interface LegendBucket {
   readonly id: string;
   readonly label: string;
   readonly color: string;
+  readonly count?: number;
 }
 
 export interface CrimePointFeature {
@@ -21,6 +22,10 @@ export interface MetricLayerResponse {
   readonly reason?: string;
   readonly sourceName?: string;
   readonly lastUpdated?: string;
+  readonly datasetVersion?: string;
+  readonly cacheFetchedAt?: string;
+  readonly cacheExpiresAt?: string;
+  readonly cacheStale?: boolean;
   readonly legend: readonly LegendBucket[];
   readonly features: readonly CrimePointFeature[];
 }

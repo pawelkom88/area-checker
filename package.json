@@ -1,0 +1,20 @@
+{
+  "name": "house-buyer-helper",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix frontend run test",
+    "lint": "npm --prefix frontend run lint",
+    "db:link": "supabase link --project-ref \"$SUPABASE_PROJECT_REF\" --yes",
+    "db:push": "supabase db push --linked",
+    "db:push:url": "supabase db push --db-url \"$SUPABASE_DB_URL\"",
+    "db:migrations": "supabase migration list --linked",
+    "db:seed:snapshots": "node --env-file=.env scripts/seed-snapshots.mjs",
+    "sync:crime": "node --env-file=.env scripts/sync-crime-layer-cache.mjs",
+    "sync:price": "node scripts/sync-price-layer-cache.mjs",
+    "sync:flood": "node scripts/sync-flood-layer-cache.mjs",
+    "sync:all": "npm run db:seed:snapshots && npm run sync:crime && npm run sync:price && npm run sync:flood"
+  }
+}

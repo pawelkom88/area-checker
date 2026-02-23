@@ -1,18 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
+import { hydrateSnapshotAndCrimeLayer, normalizePostcodeInput } from "./_lib/postcode-hydration.ts";
 
 type MetricId = "crime" | "price" | "flood";
 
-type CrimePointFeature = {
-  readonly id: string;
-  readonly type: "point";
-  readonly lat: number;
-  readonly lng: number;
-  readonly category: string;
-};
-
 const METRIC_IDS: readonly MetricId[] = ["crime", "price", "flood"];
-const CRIME_LEGEND_COLORS = ["#0A8A4B", "#1F77B4", "#FF7F0E", "#D62728", "#9467BD"];
-const MAX_CRIME_FEATURES = 250;
 
 function jsonResponse(payload: unknown, status: number, headers?: HeadersInit): Response {
   return new Response(JSON.stringify(payload), {
@@ -24,134 +15,72 @@ function jsonResponse(payload: unknown, status: number, headers?: HeadersInit): 
   });
 }
 
-function normalizePostcodeInput(postcode: string): string {
-  return postcode.toUpperCase().replace(/\s+/g, " ").trim();
-}
-
 function parseMetric(rawMetric: string | null): MetricId | null {
   if (!rawMetric) {
     return null;
   }
 
-  const nextMetric = rawMetric.toLowerCase() as MetricId;
-  return METRIC_IDS.includes(nextMetric) ? nextMetric : null;
+  const metric = rawMetric.toLowerCase() as MetricId;
+  return METRIC_IDS.includes(metric) ? metric : null;
 }
 
-function getCentroid(payload: unknown): { readonly lat: number; readonly lng: number } | null {
-  if (typeof payload !== "object" || payload === null) {
-    return null;
-  }
-
-  const centroid = (payload as { centroid?: unknown }).centroid;
-  if (typeof centroid !== "object" || centroid === null) {
-    return null;
-  }
-
-  const lat = Number((centroid as { lat?: unknown }).lat);
-  const lng = Number((centroid as { lng?: unknown }).lng);
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return null;
-  }
-
-  return { lat, lng };
-}
-
-function buildUnavailableLayer(metric: MetricId, postcode: string) {
-  const reason =
-    metric === "price"
-      ? "Property-price map layer is not available yet. We need monthly Land Registry ingest first."
-      : "Flood-risk map layer is not available yet. We need Environment Agency polygon ingest first.";
-
+function buildUnavailableLayer(options: { readonly metric: MetricId; readonly postcode: string; readonly reason: string }) {
   return {
-    metric,
-    postcode,
-    status: "unavailable" as const,
-    reason,
+    metric: options.metric,
+    postcode: options.postcode,
+    status: "unavailable",
+    reason: options.reason,
     legend: [],
     features: [],
   };
 }
 
-async function fetchCrimeLayer(options: {
+function buildEtag(options: {
+  readonly metric: MetricId;
   readonly postcode: string;
-  readonly lat: number;
-  readonly lng: number;
+  readonly datasetVersion: string;
+  readonly fetchedAt: string;
+}): string {
+  return `W/"${options.metric}:${options.postcode}:${options.datasetVersion}:${options.fetchedAt}"`;
+}
+
+function hasMatchingEtag(request: Request, etag: string): boolean {
+  const ifNoneMatch = request.headers.get("if-none-match");
+  if (!ifNoneMatch) {
+    return false;
+  }
+
+  return ifNoneMatch
+    .split(",")
+    .map((value) => value.trim())
+    .includes(etag);
+}
+
+function getCacheControl(isStale: boolean): string {
+  if (isStale) {
+    return "public, max-age=60, s-maxage=60, stale-while-revalidate=300";
+  }
+
+  return "public, s-maxage=3600, stale-while-revalidate=86400";
+}
+
+function mergePayloadWithCacheMetadata(options: {
+  readonly payload: unknown;
+  readonly datasetVersion: string;
+  readonly fetchedAt: string;
+  readonly expiresAt: string;
+  readonly isStale: boolean;
 }) {
-  const url = `https://data.police.uk/api/crimes-street/all-crime?lat=${encodeURIComponent(String(options.lat))}&lng=${encodeURIComponent(String(options.lng))}`;
-  const upstreamResponse = await fetch(url);
-
-  if (upstreamResponse.status === 429) {
-    const retryAfterHeader = upstreamResponse.headers.get("Retry-After");
-    const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : 60;
-
-    return {
-      type: "rate_limited" as const,
-      retryAfterSeconds: Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : 60,
-    };
+  if (typeof options.payload !== "object" || options.payload === null) {
+    return options.payload;
   }
-
-  if (!upstreamResponse.ok) {
-    return {
-      type: "upstream_error" as const,
-      status: upstreamResponse.status,
-    };
-  }
-
-  const rawCrimes = await upstreamResponse.json() as Array<{
-    id?: number | null;
-    month?: string;
-    category?: string;
-    location?: {
-      latitude?: string;
-      longitude?: string;
-    } | null;
-  }>;
-
-  const features = rawCrimes
-    .map((crime, index): CrimePointFeature | null => {
-      const lat = Number(crime.location?.latitude);
-      const lng = Number(crime.location?.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        return null;
-      }
-
-      return {
-        id: `${crime.id ?? "crime"}-${index}`,
-        type: "point",
-        lat,
-        lng,
-        category: crime.category ?? "other-crime",
-      };
-    })
-    .filter((feature): feature is CrimePointFeature => feature !== null)
-    .slice(0, MAX_CRIME_FEATURES);
-
-  const categoryCounts = features.reduce<Record<string, number>>((accumulator, feature) => {
-    accumulator[feature.category] = (accumulator[feature.category] ?? 0) + 1;
-    return accumulator;
-  }, {});
-
-  const legend = Object.entries(categoryCounts)
-    .sort((first, second) => second[1] - first[1])
-    .slice(0, CRIME_LEGEND_COLORS.length)
-    .map(([category, count], index) => ({
-      id: category,
-      label: `${category.replaceAll("-", " ")} (${count})`,
-      color: CRIME_LEGEND_COLORS[index],
-    }));
 
   return {
-    type: "success" as const,
-    payload: {
-      metric: "crime" as const,
-      postcode: options.postcode,
-      status: "available" as const,
-      sourceName: "UK Police Data",
-      lastUpdated: rawCrimes[0]?.month,
-      legend,
-      features,
-    },
+    ...options.payload as Record<string, unknown>,
+    datasetVersion: options.datasetVersion,
+    cacheFetchedAt: options.fetchedAt,
+    cacheExpiresAt: options.expiresAt,
+    cacheStale: options.isStale,
   };
 }
 
@@ -176,70 +105,135 @@ export default async function handler(req: Request) {
 
   const supabaseUrl = Netlify.env.get("SUPABASE_URL");
   const supabaseKey = Netlify.env.get("SUPABASE_ANON_KEY");
+  const serviceRoleKey = Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !supabaseKey) {
     return jsonResponse({ error: "Internal Server Configuration Error" }, 500);
   }
 
-  if (metric !== "crime") {
-    return jsonResponse(buildUnavailableLayer(metric, normalizedPostcode), 200, {
-      "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-    });
-  }
-
   const supabase = createClient(supabaseUrl, supabaseKey);
   const { data, error } = await supabase
-    .from("snapshots")
-    .select("payload")
+    .from("metric_layers")
+    .select("payload, dataset_version, fetched_at, expires_at")
     .eq("postcode", normalizedPostcode)
+    .eq("metric", metric)
     .single();
 
   if (error) {
     if (error.code === "PGRST116") {
-      return jsonResponse({ error: "No snapshot available for this postcode yet." }, 404, {
-        "Cache-Control": "public, max-age=300",
-      });
+      if (metric === "crime" && serviceRoleKey) {
+        const hydrationResult = await hydrateSnapshotAndCrimeLayer({
+          supabaseUrl,
+          serviceRoleKey,
+          postcode: normalizedPostcode,
+        });
+
+        if (!hydrationResult.ok) {
+          return jsonResponse(
+            {
+              error: hydrationResult.error,
+              retryAfterSeconds: hydrationResult.retryAfterSeconds,
+            },
+            hydrationResult.status,
+            hydrationResult.retryAfterSeconds
+              ? { "Retry-After": String(hydrationResult.retryAfterSeconds) }
+              : undefined,
+          );
+        }
+
+        const datasetVersion = hydrationResult.datasetVersion;
+        const fetchedAt = hydrationResult.fetchedAt;
+        const expiresAt = hydrationResult.expiresAt;
+        const etag = buildEtag({
+          metric,
+          postcode: normalizedPostcode,
+          datasetVersion,
+          fetchedAt,
+        });
+        const isStale = Date.parse(expiresAt) <= Date.now();
+        const cacheControl = getCacheControl(isStale);
+        const responsePayload = mergePayloadWithCacheMetadata({
+          payload: hydrationResult.layerPayload,
+          datasetVersion,
+          fetchedAt,
+          expiresAt,
+          isStale,
+        });
+
+        if (hasMatchingEtag(req, etag)) {
+          return new Response(null, {
+            status: 304,
+            headers: {
+              "Cache-Control": cacheControl,
+              ETag: etag,
+              "X-Data-Version": datasetVersion,
+              "X-Data-Stale": String(isStale),
+            },
+          });
+        }
+
+        return jsonResponse(responsePayload, 200, {
+          "Cache-Control": cacheControl,
+          ETag: etag,
+          "X-Data-Version": datasetVersion,
+          "X-Data-Stale": String(isStale),
+          "Last-Modified": fetchedAt,
+        });
+      }
+
+      return jsonResponse(
+        buildUnavailableLayer({
+          metric,
+          postcode: normalizedPostcode,
+          reason: "Layer cache is not ready yet. Please try again later.",
+        }),
+        200,
+        {
+          "Cache-Control": "public, max-age=300",
+        },
+      );
     }
 
-    return jsonResponse({ error: "Failed to fetch snapshot data" }, 500);
+    console.error("Layer cache query failed:", error.message);
+    return jsonResponse({ error: "Failed to fetch layer cache data." }, 500);
   }
 
-  const centroid = getCentroid(data.payload);
-  if (!centroid) {
-    return jsonResponse({ error: "Snapshot centroid is missing. Please try another postcode." }, 422);
-  }
-
-  const layerResult = await fetchCrimeLayer({
+  const datasetVersion = typeof data.dataset_version === "string" ? data.dataset_version : "unknown";
+  const fetchedAt = typeof data.fetched_at === "string" ? data.fetched_at : new Date().toISOString();
+  const expiresAt = typeof data.expires_at === "string" ? data.expires_at : fetchedAt;
+  const etag = buildEtag({
+    metric,
     postcode: normalizedPostcode,
-    lat: centroid.lat,
-    lng: centroid.lng,
+    datasetVersion,
+    fetchedAt,
+  });
+  const isStale = Date.parse(expiresAt) <= Date.now();
+  const cacheControl = getCacheControl(isStale);
+  const responsePayload = mergePayloadWithCacheMetadata({
+    payload: data.payload,
+    datasetVersion,
+    fetchedAt,
+    expiresAt,
+    isStale,
   });
 
-  if (layerResult.type === "rate_limited") {
-    return jsonResponse(
-      {
-        error: "Live crime data provider is temporarily rate-limiting requests. Please try again shortly.",
-        retryAfterSeconds: layerResult.retryAfterSeconds,
+  if (hasMatchingEtag(req, etag)) {
+    return new Response(null, {
+      status: 304,
+      headers: {
+        "Cache-Control": cacheControl,
+        ETag: etag,
+        "X-Data-Version": datasetVersion,
+        "X-Data-Stale": String(isStale),
       },
-      429,
-      {
-        "Retry-After": String(layerResult.retryAfterSeconds),
-        "Cache-Control": "public, max-age=30, s-maxage=30",
-      },
-    );
+    });
   }
 
-  if (layerResult.type === "upstream_error") {
-    return jsonResponse(
-      { error: "Live crime data is temporarily unavailable. Please try again shortly." },
-      502,
-      {
-        "Cache-Control": "public, max-age=60",
-      },
-    );
-  }
-
-  return jsonResponse(layerResult.payload, 200, {
-    "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600",
+  return jsonResponse(responsePayload, 200, {
+    "Cache-Control": cacheControl,
+    ETag: etag,
+    "X-Data-Version": datasetVersion,
+    "X-Data-Stale": String(isStale),
+    "Last-Modified": fetchedAt,
   });
 }

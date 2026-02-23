@@ -30,14 +30,13 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 }) => {
     if (loading) {
         return (
-            <div className="metric-card skeleton fade-in-up" style={{ minHeight: '160px' }}>
+            <div className="metric-card skeleton" style={{ minHeight: '160px' }}>
             </div>
         );
     }
 
     const cardClassName = [
         'metric-card',
-        'fade-in-up',
         compact ? 'metric-card--compact' : '',
         onClick ? 'metric-card--interactive' : '',
     ]

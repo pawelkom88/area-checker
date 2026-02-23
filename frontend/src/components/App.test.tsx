@@ -25,6 +25,10 @@ const mockPayload = {
       trend: 'down',
       primary_type: 'Anti-social behaviour',
       last_updated: '2023-11',
+      top_categories: [
+        { category: 'theft from the person', count: 47 },
+        { category: 'anti-social behaviour', count: 31 },
+      ],
     },
     price: {
       median_value: 1250000,
@@ -45,13 +49,18 @@ const mockCrimeLayerPayload: MetricLayerResponse = {
   postcode: 'SW1A 1AA',
   status: 'available',
   sourceName: 'UK Police Data',
-  lastUpdated: '2023-11',
+  lastUpdated: '2026-02',
+  cacheFetchedAt: '2026-02-23T10:00:00.000Z',
+  cacheExpiresAt: '2026-02-24T10:00:00.000Z',
+  cacheStale: false,
   legend: [
     { id: 'anti-social-behaviour', label: 'anti social behaviour (2)', color: '#0A8A4B' },
+    { id: 'vehicle-crime', label: 'vehicle crime (1)', color: '#1F77B4' },
   ],
   features: [
     { id: 'c1', type: 'point', lat: 51.5011, lng: -0.1408, category: 'anti-social-behaviour' },
     { id: 'c2', type: 'point', lat: 51.5008, lng: -0.1413, category: 'anti-social-behaviour' },
+    { id: 'c3', type: 'point', lat: 51.5003, lng: -0.141, category: 'vehicle-crime' },
   ],
 };
 
@@ -202,15 +211,18 @@ describe('App Router Search + Details Flow', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Back to summary/i })).toBeInTheDocument();
-      expect(screen.getByText('Map Layer Availability')).toBeInTheDocument();
     });
 
     expect(screen.queryByRole('heading', { name: /Flood Risk Map/i })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Show on map/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Map On/i }));
+    const legendToggle = screen.queryByRole('button', { name: /Show map legend/i });
+    if (legendToggle) {
+      fireEvent.click(legendToggle);
+    }
 
     await waitFor(() => {
-      const legend = screen.getByRole('note');
+      const legend = screen.queryByRole('note') ?? screen.getByRole('dialog');
       expect(within(legend).getByRole('heading', { name: /Flood Risk Map/i })).toBeInTheDocument();
       expect(within(legend).getByText(/Detailed flood-risk map layer is not available yet/i)).toBeInTheDocument();
     });
@@ -231,15 +243,48 @@ describe('App Router Search + Details Flow', () => {
     await renderAppAt('/details?postcode=SW1A%201AA&metric=crime');
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Show on map/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Map On/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Show on map/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Map On/i }));
+    const legendToggle = screen.queryByRole('button', { name: /Show map legend/i });
+    if (legendToggle) {
+      fireEvent.click(legendToggle);
+    }
 
     await waitFor(() => {
       expect(
         screen.getAllByText(/temporarily rate-limiting requests. Please try again in about 75 seconds/i).length,
       ).toBeGreaterThan(0);
+    });
+  });
+
+  it('lets users filter crime categories and keeps map visibility active', async () => {
+    mockApiFetch();
+
+    await renderAppAt('/details?postcode=SW1A%201AA&metric=crime');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Map On/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Map On/i }));
+    const legendToggle = screen.queryByRole('button', { name: /Show map legend/i });
+    if (legendToggle) {
+      fireEvent.click(legendToggle);
+    }
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /anti social behaviour/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /vehicle crime/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /vehicle crime/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Map Off/i })).toBeInTheDocument();
+      const legend = screen.queryByRole('note') ?? screen.getByRole('dialog');
+      expect(within(legend).getByRole('button', { name: /anti social behaviour/i })).toHaveAttribute('aria-pressed', 'true');
+      expect(within(legend).getByRole('button', { name: /vehicle crime/i })).toHaveAttribute('aria-pressed', 'false');
     });
   });
 });

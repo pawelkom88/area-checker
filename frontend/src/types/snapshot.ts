@@ -9,6 +9,10 @@ export type SnapshotData = {
       trend: string;
       primary_type: string;
       last_updated: string;
+      top_categories?: ReadonlyArray<{
+        category: string;
+        count: number;
+      }>;
     }>;
     readonly price: SnapshotMetric<{
       median_value: number;
