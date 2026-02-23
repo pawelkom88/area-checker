@@ -1,0 +1,12 @@
+[build]
+  command = "npm --prefix frontend run build"
+  publish = "frontend/dist"
+
+[dev]
+  command = "npm --prefix frontend run dev"
+  targetPort = 5173
+  port = 8888
+
+[[edge_functions]]
+  path = "/api/snapshot"
+  function = "snapshot"

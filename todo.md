@@ -1,20 +1,20 @@
 # UK Area Snapshot — To-Do List
 
 ## Phase 0: Foundations & "Hello Snapshot"
-- [ ] Initialize Vite React + TypeScript repository.
-- [ ] Set up global vanilla CSS (`theme.css`) with Apple-like UI variables (colors, fonts, radius).
+- [x] Initialize Vite React + TypeScript repository.
+- [x] Set up global vanilla CSS (`theme.css` / `index.css`) with Apple-like UI variables (colors, fonts, radius).
 - [ ] Create Supabase project & `snapshot` table (`postcode` PK, `payload` JSONB).
 - [ ] Seed Supabase with 3 dummy postcodes (e.g., SW1A 1AA) and sample JSON payloads.
 - [ ] Set up Netlify deployment & create `/api/snapshot` Edge Function.
 - [ ] Implement Netlify Edge Function logic to normalization inputs and fetch from Supabase.
-- [ ] Create React `Layout` and `SearchInput` component with micro-transitions (focus effects, shake on error).
-- [ ] Create `SkeletonCard` loading states and minimal error states.
-- [ ] Verify End-to-End: enter dummy postcode -> API call -> render cards.
+- [x] Create React `Layout` and `SearchInput` component with micro-transitions (focus effects, shake on error).
+- [x] Create `SkeletonCard` loading states and minimal error states.
+- [x] Verify End-to-End: enter dummy postcode -> API call -> render cards (Current: Mocked locally).
 
 ## Phase 1: Real Snapshot MVP (Data & Bento UI)
 - [ ] Define the definitive v1 JSON Payload schema (Metrics, Sources, Timestamps).
-- [ ] Hand-code the Bento Box UI Grid using pure CSS.
-- [ ] Create Metric Cards components (Crime, Median Price, Flood) with `border-radius`, 1px subtle borders, hover lift effects.
+- [x] Hand-code the Bento Box UI Grid using pure CSS (`Dashboard.tsx`).
+- [x] Create Metric Cards components (Crime, Median Price, Flood) with `border-radius`, 1px subtle borders, hover lift effects.
 - [ ] Set up the first GitHub Action ETL script (Node.js/Python).
 - [ ] In GitHub Action: Download UK Police & ONS Postcode data (for a subset of postcodes).
 - [ ] In GitHub Action: Compute spatial aggregates (e.g., 1km radius).
@@ -22,8 +22,8 @@
 - [ ] Test the UI with real data appearing from Supabase.
 
 ## Phase 2: Minimalist Map Exploration
-- [ ] Install `react-leaflet`.
-- [ ] Implement Map Component adjacent to the Bento UI grid.
+- [x] Install `react-leaflet`.
+- [x] Implement Map Component adjacent to the Bento UI grid.
 - [ ] Apply CSS filters to OpenStreetMap tiles (`grayscale`, `contrast`, `brightness` or `invert` for dark mode).
 - [ ] Build custom HTML/CSS toggle switch components for data layers.
 - [ ] Implement Netlify edge caching for requested GeoJSON files/layers.

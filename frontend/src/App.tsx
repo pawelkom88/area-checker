@@ -11,32 +11,10 @@ export type SnapshotData = {
   readonly postcode: string;
   readonly centroid: { readonly lat: number; readonly lng: number };
   readonly metrics: {
-    readonly crime: SnapshotMetric<{ total_12m: number; vs_borough_avg_pct: number }>;
-    readonly property: SnapshotMetric<{ median_price_12m: number; sample_size: number }>;
-    readonly flood_risk: SnapshotMetric<{ classification: string; details: string }>;
+    readonly crime: SnapshotMetric<{ total_incidents: number; trend: string; primary_type: string; last_updated: string }>;
+    readonly price: SnapshotMetric<{ median_value: number; trend: string; property_type: string; last_updated: string }>;
+    readonly flood: SnapshotMetric<{ risk_level: string; primary_source: string; last_updated: string }>;
   };
-  readonly sources: {
-    readonly crime: SnapshotMetric<{ name: string; url: string; last_updated: string }>;
-    readonly property: SnapshotMetric<{ name: string; url: string; last_updated: string }>;
-    readonly flood_risk: SnapshotMetric<{ name: string; url: string; last_updated: string }>;
-  };
-};
-
-const MOCK_DATA: Record<string, SnapshotData> = {
-  'SW1A 1AA': {
-    postcode: 'SW1A 1AA',
-    centroid: { lat: 51.501, lng: -0.1416 },
-    metrics: {
-      crime: { total_12m: 124, vs_borough_avg_pct: -12.5 },
-      property: { median_price_12m: 1250000, sample_size: 14 },
-      flood_risk: { classification: 'Low', details: 'Very low risk of surface water flooding' },
-    },
-    sources: {
-      crime: { name: 'UK Police API', url: 'https://data.police.uk', last_updated: '2026-01-31' },
-      property: { name: 'HM Land Registry', url: 'https://landregistry.gov.uk', last_updated: '2025-12-01' },
-      flood_risk: { name: 'Environment Agency', url: 'https://gov.uk/check-long-term-flood-risk', last_updated: '2025-11-15' },
-    }
-  }
 };
 
 const normalizePostcode = (p: string) => p.toUpperCase().replace(/\s+/g, ' ').trim();
@@ -157,21 +135,31 @@ export default function App() {
   }, [state.data, state.loading, isMobile]);
 
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!state.postcode.trim()) return;
 
     dispatch({ type: 'START_SEARCH' });
-    if (!isMobile) setIsDesktopSidebarOpen(true);
 
-    setTimeout(() => {
-      const normalized = normalizePostcode(state.postcode);
-      if (normalized.includes('SW1') || normalized === 'SW1A 1AA') {
-        dispatch({ type: 'FETCH_SUCCESS', payload: MOCK_DATA['SW1A 1AA'] });
-      } else {
-        dispatch({ type: 'FETCH_ERROR', error: 'No snapshot available for this postcode yet.' });
+    const normalized = normalizePostcode(state.postcode);
+
+    try {
+      const response = await fetch(`/api/snapshot?postcode=${encodeURIComponent(normalized)}`);
+
+      if (!response.ok) {
+        let errorMsg = 'Failed to fetch snapshot data.';
+        try {
+          const errBody = await response.json();
+          if (errBody.error) errorMsg = errBody.error;
+        } catch { /* ignore fallback */ }
+        throw new Error(errorMsg);
       }
-    }, 1200);
+
+      const payload: SnapshotData = await response.json();
+      dispatch({ type: 'FETCH_SUCCESS', payload });
+    } catch (err: any) {
+      dispatch({ type: 'FETCH_ERROR', error: err.message });
+    }
   };
 
   const currentCentroid = state.data?.centroid ?? null;
@@ -304,30 +292,30 @@ export default function App() {
                   <>
                     <MetricCard
                       title="Crime & Safety"
-                      value={`${state.data.metrics.crime.total_12m} incidents`}
-                      description={`${Math.abs(state.data.metrics.crime.vs_borough_avg_pct)}% ${state.data.metrics.crime.vs_borough_avg_pct < 0 ? 'lower' : 'higher'} than borough average.`}
+                      value={`${state.data.metrics.crime.total_incidents} incidents`}
+                      description={`Primary type: ${state.data.metrics.crime.primary_type}. Trend: ${state.data.metrics.crime.trend}.`}
                       icon={ShieldAlert}
-                      sourceName={state.data.sources.crime.name}
-                      sourceUrl={state.data.sources.crime.url}
-                      lastUpdated={state.data.sources.crime.last_updated}
+                      sourceName="UK Police Data"
+                      sourceUrl="https://data.police.uk"
+                      lastUpdated={state.data.metrics.crime.last_updated}
                     />
                     <MetricCard
                       title="Property Prices"
-                      value={`£${state.data.metrics.property.median_price_12m.toLocaleString()}`}
-                      description={`Median sold price over the last 12 months (${state.data.metrics.property.sample_size} sales).`}
+                      value={`£${state.data.metrics.price.median_value.toLocaleString()}`}
+                      description={`Median solid price for ${state.data.metrics.price.property_type}s. Trend: ${state.data.metrics.price.trend}.`}
                       icon={Home}
-                      sourceName={state.data.sources.property.name}
-                      sourceUrl={state.data.sources.property.url}
-                      lastUpdated={state.data.sources.property.last_updated}
+                      sourceName="HM Land Registry"
+                      sourceUrl="https://landregistry.gov.uk"
+                      lastUpdated={state.data.metrics.price.last_updated}
                     />
                     <MetricCard
                       title="Flood Risk"
-                      value={state.data.metrics.flood_risk.classification}
-                      description={state.data.metrics.flood_risk.details}
+                      value={state.data.metrics.flood.risk_level}
+                      description={`Primary source: ${state.data.metrics.flood.primary_source}.`}
                       icon={Droplets}
-                      sourceName={state.data.sources.flood_risk.name}
-                      sourceUrl={state.data.sources.flood_risk.url}
-                      lastUpdated={state.data.sources.flood_risk.last_updated}
+                      sourceName="Environment Agency"
+                      sourceUrl="https://gov.uk/check-long-term-flood-risk"
+                      lastUpdated={state.data.metrics.flood.last_updated}
                     />
                   </>
                 ) : null}
