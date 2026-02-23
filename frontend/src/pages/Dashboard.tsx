@@ -3,28 +3,33 @@ import { motion, useAnimationControls } from 'motion/react';
 import type { PanInfo } from 'motion/react';
 import { MapPin, ShieldAlert, Home, Droplets, X } from 'lucide-react';
 import { MetricCard } from '../components/MetricCard';
-import type { SnapshotData } from '../App';
+import type { MetricId } from '../constants/metrics';
+import type { SnapshotData } from '../types/snapshot';
 
 interface DashboardProps {
     isMobile: boolean;
+    defaultPostcode?: string;
     data: SnapshotData | undefined;
     isLoading: boolean;
     error: Error | null;
     drawerExpanded: boolean;
     setDrawerExpanded: (expanded: boolean) => void;
     setIsDesktopSidebarOpen: (open: boolean) => void;
-    handleSearch: (e: React.SubmitEvent<HTMLFormElement>) => void;
+    handleSearch: (e: React.FormEvent<HTMLFormElement>) => void;
+    onMetricSelect?: (metric: MetricId) => void;
 }
 
 export function Dashboard({
     isMobile,
+    defaultPostcode,
     data,
     isLoading,
     error,
     drawerExpanded,
     setDrawerExpanded,
     setIsDesktopSidebarOpen,
-    handleSearch
+    handleSearch,
+    onMetricSelect,
 }: DashboardProps) {
     const panelRef = React.useRef<HTMLDivElement | null>(null);
     const [panelHeight, setPanelHeight] = React.useState(0);
@@ -100,7 +105,7 @@ export function Dashboard({
 
             <div className="bottom-sheet-header">
                 <h2 className="bottom-sheet-title">
-                    {data ? data.postcode : 'Search Region'}
+                    {data?.postcode ?? defaultPostcode ?? 'Search Region'}
                 </h2>
                 <button
                     className="desktop-close-btn"
@@ -116,11 +121,13 @@ export function Dashboard({
                 <div className="input-field">
                     <MapPin size={24} color="var(--color-dark-gray)" aria-hidden="true" />
                     <input
+                        key={defaultPostcode ?? 'empty'}
                         id="postcode-search"
                         name="postcode-search"
                         type="search"
                         autoComplete="postal-code"
                         placeholder="Enter postcode..."
+                        defaultValue={defaultPostcode ?? ''}
                     />
                 </div>
                 <div className="form-feedback-slot" aria-live="polite">
@@ -150,6 +157,9 @@ export function Dashboard({
                                     sourceName="UK Police Data"
                                     sourceUrl="https://data.police.uk"
                                     lastUpdated={data.metrics.crime.last_updated}
+                                    compact
+                                    showSourceLink={!onMetricSelect}
+                                    onClick={onMetricSelect ? () => onMetricSelect('crime') : undefined}
                                 />
                                 <MetricCard
                                     title="Property Prices"
@@ -159,6 +169,9 @@ export function Dashboard({
                                     sourceName="HM Land Registry"
                                     sourceUrl="https://landregistry.gov.uk"
                                     lastUpdated={data.metrics.price.last_updated}
+                                    compact
+                                    showSourceLink={!onMetricSelect}
+                                    onClick={onMetricSelect ? () => onMetricSelect('price') : undefined}
                                 />
                                 <MetricCard
                                     title="Flood Risk"
@@ -168,6 +181,9 @@ export function Dashboard({
                                     sourceName="Environment Agency"
                                     sourceUrl="https://gov.uk/check-long-term-flood-risk"
                                     lastUpdated={data.metrics.flood.last_updated}
+                                    compact
+                                    showSourceLink={!onMetricSelect}
+                                    onClick={onMetricSelect ? () => onMetricSelect('flood') : undefined}
                                 />
                             </>
                         ) : null}

@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { fetchSnapshot } from '../api/client';
-import type { SnapshotData } from '../App';
+import type { SnapshotData } from '../types/snapshot';
 
 export const snapshotQueryKeys = {
     all: ['snapshot'] as const,

@@ -6,6 +6,10 @@ describe('postcode utils', () => {
     expect(normalizePostcodeInput('  sw1a   1aa ')).toBe('SW1A 1AA');
   });
 
+  it('inserts standard outward/inward spacing when input has no space', () => {
+    expect(normalizePostcodeInput('sw11aa')).toBe('SW1 1AA');
+  });
+
   it('returns normalized postcode for valid input', () => {
     const result = parsePostcodeInput(' sw1a   1aa ');
     expect(result.success).toBe(true);

@@ -3,32 +3,42 @@
 ## Phase 0: Foundations & "Hello Snapshot"
 - [x] Initialize Vite React + TypeScript repository.
 - [x] Set up global vanilla CSS (`theme.css` / `index.css`) with Apple-like UI variables (colors, fonts, radius).
-- [ ] Create Supabase project & `snapshot` table (`postcode` PK, `payload` JSONB).
+- [x] Create Supabase project & `snapshot` table (`postcode` PK, `payload` JSONB).
 - [ ] Seed Supabase with 3 dummy postcodes (e.g., SW1A 1AA) and sample JSON payloads.
-- [ ] Set up Netlify deployment & create `/api/snapshot` Edge Function.
-- [ ] Implement Netlify Edge Function logic to normalization inputs and fetch from Supabase.
+- [x] Set up Netlify deployment & create `/api/snapshot` Edge Function.
+- [x] Implement Netlify Edge Function logic to normalization inputs and fetch from Supabase.
 - [x] Create React `Layout` and `SearchInput` component with micro-transitions (focus effects, shake on error).
 - [x] Create `SkeletonCard` loading states and minimal error states.
 - [x] Verify End-to-End: enter dummy postcode -> API call -> render cards (Current: Mocked locally).
 
 ## Phase 1: Real Snapshot MVP (Data & Bento UI)
-- [ ] Define the definitive v1 JSON Payload schema (Metrics, Sources, Timestamps).
+- [x] Define the definitive v1 JSON Payload schema (Metrics, Sources, Timestamps).
 - [x] Hand-code the Bento Box UI Grid using pure CSS (`Dashboard.tsx`).
 - [x] Create Metric Cards components (Crime, Median Price, Flood) with `border-radius`, 1px subtle borders, hover lift effects.
 - [ ] Set up the first GitHub Action ETL script (Node.js/Python).
 - [ ] In GitHub Action: Download UK Police & ONS Postcode data (for a subset of postcodes).
 - [ ] In GitHub Action: Compute spatial aggregates (e.g., 1km radius).
 - [ ] In GitHub Action: `UPSERT` precomputed JSON payloads into Supabase `snapshot` table.
-- [ ] Test the UI with real data appearing from Supabase.
+- [x] Test the UI with real data appearing from Supabase.
 
 ## Phase 2: Minimalist Map Exploration
 - [x] Install `react-leaflet`.
 - [x] Implement Map Component adjacent to the Bento UI grid.
-- [ ] Apply CSS filters to OpenStreetMap tiles (`grayscale`, `contrast`, `brightness` or `invert` for dark mode).
+- [x] Apply CSS filters to OpenStreetMap tiles (`grayscale`, `contrast`, `brightness` or `invert` for dark mode).
 - [ ] Build custom HTML/CSS toggle switch components for data layers.
 - [ ] Implement Netlify edge caching for requested GeoJSON files/layers.
 - [ ] Overlay custom SVG markers and GeoJSON on the map based on toggles.
 - [ ] Implement `IndexedDB` client-side caching for recent postcode snapshots and tiles.
+
+## Phase 2.5: Routing & Shareable UX
+- [x] Add TanStack Router with route tree (`/` and `/details`).
+- [x] Support URL-driven search hydration via `?postcode=...`.
+- [x] Navigate metric cards to deep-linkable details route (`/details?postcode=...&metric=...`).
+- [x] Add compact clickable metric cards in summary drawer.
+- [x] Add details drawer with Back navigation and map-toggle control.
+- [x] Add map legend/placeholder state for unavailable metric layers.
+- [x] Add frontend layer interfaces and disabled query stub for next-phase overlay APIs.
+- [x] Add router-level tests for URL params, deep links, and map-toggle behavior.
 
 ## Phase 3: The Zero-Cost Automated Pipeline
 - [ ] Write Python/Node ingest scripts for Schools, GPs, and Broadband datasets.

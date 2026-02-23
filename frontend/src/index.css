@@ -325,6 +325,38 @@ h6 {
   padding: 20px;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  border: none;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.metric-card--compact {
+  padding: 14px 16px;
+}
+
+.metric-card--compact .metric-card-value {
+  font-size: 24px;
+}
+
+.metric-card--compact .metric-card-description {
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.metric-card--compact .metric-card-footer {
+  font-size: 11px;
+}
+
+.metric-card--interactive {
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-apple), box-shadow 0.2s var(--ease-apple);
+}
+
+.metric-card--interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .metric-card-header {
@@ -369,6 +401,78 @@ h6 {
 .metric-card-footer a {
   color: var(--color-dark-gray);
   text-decoration: underline;
+}
+
+.details-controls {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+.btn-secondary {
+  width: 100%;
+  background: var(--color-white);
+  color: var(--text-primary);
+  border: 1px solid #D5D5D5;
+  border-radius: 99px;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.panel-back-btn {
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-dark-gray);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.panel-back-spacer {
+  width: 62px;
+}
+
+.details-placeholder {
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.details-placeholder h3 {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.details-placeholder p {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.map-legend {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 120;
+  max-width: 280px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 12px 14px;
+}
+
+.map-legend-title {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.map-legend-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 /* Animations */

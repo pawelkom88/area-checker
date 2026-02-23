@@ -1,4 +1,4 @@
-import type { SnapshotData } from '../App';
+import type { SnapshotData } from '../types/snapshot';
 import { normalizePostcodeInput } from '../utils/postcode';
 
 export async function fetchSnapshot(postcode: string): Promise<SnapshotData> {

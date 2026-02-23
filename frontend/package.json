@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
+    "@tanstack/react-router": "^1.162.4",
     "babel-plugin-react-compiler": "^1.0.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.575.0",

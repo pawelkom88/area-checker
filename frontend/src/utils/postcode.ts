@@ -4,7 +4,12 @@ const UK_POSTCODE_REGEX =
   /^([Gg][Ii][Rr]\s?0[Aa]{2}|((([A-Za-z][0-9]{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y][0-9]{1,2})|(([A-Za-z][0-9][A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y][0-9][A-Za-z]?))))\s?[0-9][A-Za-z]{2}))$/;
 
 export function normalizePostcodeInput(value: string): string {
-  return value.toUpperCase().replace(/\s+/g, ' ').trim();
+  const compact = value.toUpperCase().replace(/\s+/g, '').trim();
+  if (compact.length <= 3) {
+    return compact;
+  }
+
+  return `${compact.slice(0, -3)} ${compact.slice(-3)}`;
 }
 
 export const postcodeSchema = z

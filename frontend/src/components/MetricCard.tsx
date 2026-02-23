@@ -10,6 +10,9 @@ export type MetricCardProps = {
     readonly sourceUrl: string;
     readonly lastUpdated: string;
     readonly loading?: boolean;
+    readonly compact?: boolean;
+    readonly onClick?: () => void;
+    readonly showSourceLink?: boolean;
 };
 
 export const MetricCard: React.FC<MetricCardProps> = ({
@@ -21,6 +24,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({
     sourceUrl,
     lastUpdated,
     loading = false,
+    compact = false,
+    onClick,
+    showSourceLink = true,
 }) => {
     if (loading) {
         return (
@@ -29,8 +35,25 @@ export const MetricCard: React.FC<MetricCardProps> = ({
         );
     }
 
-    return (
-        <div className="metric-card fade-in-up">
+    const cardClassName = [
+        'metric-card',
+        'fade-in-up',
+        compact ? 'metric-card--compact' : '',
+        onClick ? 'metric-card--interactive' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    const sourceContent = showSourceLink ? (
+        <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
+            Source: {sourceName}
+        </a>
+    ) : (
+        <span>Source: {sourceName}</span>
+    );
+
+    const content = (
+        <>
             <div className="metric-card-header">
                 <h3 className="metric-card-title">{title}</h3>
                 <Icon className="metric-card-icon" size={20} />
@@ -38,11 +61,28 @@ export const MetricCard: React.FC<MetricCardProps> = ({
             <div className="metric-card-value">{value}</div>
             <div className="metric-card-description">{description}</div>
             <div className="metric-card-footer">
-                <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
-                    Source: {sourceName}
-                </a>
+                {sourceContent}
                 <span>{lastUpdated}</span>
             </div>
-        </div>
+        </>
+    );
+
+    if (onClick) {
+        return (
+            <button
+                type="button"
+                className={cardClassName}
+                onClick={onClick}
+                aria-label={`Open ${title} details`}
+            >
+                {content}
+            </button>
+        );
+    }
+
+    return (
+        <article className={cardClassName}>
+            {content}
+        </article>
     );
 };
